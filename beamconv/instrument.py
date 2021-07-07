@@ -2418,12 +2418,13 @@ class ScanStrategy(Instrument, qp.QMap):
         See Wallis et al., 2017, MNRAS, 466, 425.
         '''
 
-        siad = 86400.            # seconds in a day
-        today_julian = 1        # I just set 1 by hand
-        sample_rate = 19.1      # Hz
-        ydays = 20              # duration of the mission (in days)
-        nsiade = 256
-        runtime_i = time.time()
+        # I commented all the lines, we shouldn't need them!
+        #siad = 86400.           # seconds in a day
+        #today_julian = 1        # I just set 1 by hand
+        #sample_rate = 19.1      # Hz
+        #ydays = 20              # duration of the mission (in days)
+        #nsiade = 256
+        #runtime_i = time.time()
 
         dt = 1 / float(self.fsamp)
         nsamp = self.ctime.size # ctime determines chunk size
