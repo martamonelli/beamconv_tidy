@@ -3168,7 +3168,7 @@ class ScanStrategy(Instrument, qp.QMap):
         if np.count_nonzero(quat) == 0:
             q_off = self.det_offset(az_off, el_off, 0)
         else:
-            q_off = quat
+            q_off = np.array(quat)
 
         # Rotate offset given rot_dict. We rotate the centroid
         # around the boresight. It's q_bore * q_rot * q_off.
