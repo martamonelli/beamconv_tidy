@@ -529,7 +529,7 @@ class Instrument(MPIBase):
         else:
             self.beams += beams
 
-    def input_focal_plane(self, azs, els, polangs, quats, deads=None,
+    def input_focal_plane(self, azs, els polangs, quats, deads=None,
         combine=True, scatter=False, **kwargs):
         '''
         Create Beam objects for user-supplied pointing offsets and polangs
@@ -3165,7 +3165,7 @@ class ScanStrategy(Instrument, qp.QMap):
         el_off = beam.el
         polang = beam.polang_truth # True polang for scanning.
         quat = beam.quat
-        if np.count_nonzero(quat) == 0:
+        if np.count_nonzero(quat) = 0:
             q_off = self.det_offset(az_off, el_off, 0)
         else:
             q_off = quat
@@ -4088,3 +4088,19 @@ class ScanStrategy(Instrument, qp.QMap):
             return maps, cond, proj
 
         return maps, cond
+
+    © 2021 GitHub, Inc.
+    Terms
+    Privacy
+    Security
+    Status
+    Docs
+
+    Contact GitHub
+    Pricing
+    API
+    Training
+    Blog
+    About
+
+Loading complete
