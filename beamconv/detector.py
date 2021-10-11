@@ -169,13 +169,13 @@ class Beam(object):
     '''
     A class representing detector and beam properties.
     '''
-    def __init__(self, az=0., el=0., polang=0., quat=np.zeros(4), name=None,
+    def __init__(self, az=0., el=0., polang=0., name=None,
                  pol='A', btype='Gaussian', fwhm=None, lmax=700, mmax=None, sensitive_freq = 150,
                  dead=False, ghost=False, amplitude=1., po_file=None,
                  eg_file=None, cross_pol=True, deconv_q=True,
                  normalize=True, polang_error=0., idx=None,
                  symmetric=False, hwp=HWP(), 
-                 hwp_mueller=None):
+                 hwp_mueller=None, quats=np.array([None])):
         '''
         Initialize a detector beam.
         Keyword arguments
@@ -189,9 +189,9 @@ class Beam(object):
         polang : float
             The polarization orientation of the beam/detector [deg]
             (default: 0.)
-        quat : (4,) array of floats
+        quats : array of quaternions
             The offset quaternion of the beam/detector
-            (default: np.zeros(4))
+            (default: None)
         name : str
             Optional callsign of this particular beam (default: None)
         pol : str
@@ -254,7 +254,9 @@ class Beam(object):
         self.az = az
         self.el = el
         self.polang = polang
-        self.quat = quat
+        if (quats != None).all():
+            self.quat = quats[idx][0]
+        else: self.quat = np.array([None,None,None,None])
         self.name = name
         self.pol = pol
         self.btype = btype
@@ -597,7 +599,7 @@ class Beam(object):
         ghost_opts = dict(az=self.az,
                           el=self.el,
                           polang=self.polang,
-                          quat=self.quat,
+                          quats=self.quats,
                           name=name,
                           pol=self.pol,
                           btype=self.btype,

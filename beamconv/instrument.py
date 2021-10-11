@@ -529,7 +529,7 @@ class Instrument(MPIBase):
         else:
             self.beams += beams
 
-    def input_focal_plane(self, azs, els, polangs, quats, deads=None,
+    def input_focal_plane(self, azs, els, polangs, deads=None,
         combine=True, scatter=False, **kwargs):
         '''
         Create Beam objects for user-supplied pointing offsets and polangs
@@ -541,8 +541,6 @@ class Instrument(MPIBase):
             Detector el-offsets as an npair x 2 array
         polangs : array-like
             Detector polarization angle offsets
-        quats : array-like
-            Detector quaternion offset
         deads : array-like (optional)
             Detector dead/alive values as an npair x 2 array
         combine : bool
@@ -579,15 +577,14 @@ class Instrument(MPIBase):
             self.ndet = 2 * nrow * ncol # A and B detectors.
             idx = 0
 
-
         beams = []
-        for i, (az, el, polang, quat, dead) in enumerate(
-                zip(azs, els, polangs, quats, deads)):
-
-            beam_a = Beam(az=az[0], el=el[0], name='det{}'.format(i),
-                polang=polang[0], quat=quat[0], dead=dead[0], pol='A', idx=i, **kwargs)
+        for i, (az, el, polang, dead) in enumerate(
+                zip(azs, els, polangs, deads)):
+            
+            beam_a = Beam(az=az[0], el=el[0],  name='det{}'.format(i),
+                    polang=polang[0], dead=dead[0], pol='A', idx=i, **kwargs)
             beam_b = Beam(az=az[1], el=el[1], name='det{}'.format(i),
-                polang=polang[1], quat=quat[1], dead=dead[1], pol='B', idx=i, **kwargs)
+                    polang=polang[1], dead=dead[1], pol='B', idx=i, **kwargs)
 
             beams.append([beam_a, beam_b])
             idx += 2
@@ -3164,17 +3161,16 @@ class ScanStrategy(Instrument, qp.QMap):
         az_off = beam.az
         el_off = beam.el
         polang = beam.polang_truth # True polang for scanning.
-        quat = beam.quat
-        if np.count_nonzero(quat) == 0:
-            q_off = self.det_offset(az_off, el_off, 0)
-        else:
-            q_off = np.array(quat)
+        
+        if (beam.quat != None).all():
+            q_off = beam.quat
+        else: q_off = self.det_offset(az_off, el_off, 0)            
 
         # Rotate offset given rot_dict. We rotate the centroid
         # around the boresight. It's q_bore * q_rot * q_off.
         ang = np.radians(self.rot_dict['angle'])
         q_rot = np.asarray([np.cos(ang/2.), 0., 0., np.sin(ang/2.)])
-        #q_off = tools.quat_left_mult(q_rot, q_off)
+        q_off = tools.quat_left_mult(q_rot, q_off)
 
         # Expose pointing offset for mapmaking. Not for ghosts.
         if not beam.ghost:
