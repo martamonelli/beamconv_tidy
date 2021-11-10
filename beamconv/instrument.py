@@ -2293,7 +2293,7 @@ class ScanStrategy(Instrument, qp.QMap):
         return ctime
 
     def litebird_scan(self, theta_antisun=45., theta_boresight = 50.,
-        freq_antisun = 192.348, freq_boresight = 0.314, sample_rate = 19.1,
+        freq_antisun = 192.348, freq_boresight = 0.314, sample_rate = 19,
         jitter_amp=0.0, **kwargs):
         '''
         A function to simulate satellite scanning strategy.
@@ -2331,7 +2331,7 @@ class ScanStrategy(Instrument, qp.QMap):
         #today_julian = 1        # I just set 1 by hand
         #sample_rate = 19.1      # Hz
         #ydays = 20              # duration of the mission (in days)
-        #nsiade = 256
+        #nside = 256
         #runtime_i = time.time()
 
         dt = 1 / float(self.fsamp)
