@@ -94,7 +94,7 @@ class Beam(object):
         self.el = el
         self.polang = polang
         if (quats != None).all():
-            self.quat = quats#[idx][0]
+            self.quat = quats[idx][0]
         else: self.quat = np.array([None,None,None,None])
         self.name = name
         self.pol = pol
