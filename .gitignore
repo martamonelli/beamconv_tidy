@@ -4,7 +4,7 @@
 *.synctex.gz
 *.png
 *.py.swp
-/beamconv/*.csv
+*.csv
 tests/*
 .ipynb_checkpoints
 .DS_Store
