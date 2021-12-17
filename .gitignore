@@ -4,6 +4,7 @@
 *.synctex.gz
 *.png
 *.py.swp
+*.csv
 tests/*
 .ipynb_checkpoints
 .DS_Store
