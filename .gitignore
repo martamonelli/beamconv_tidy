@@ -2,7 +2,6 @@
 *.aux
 *.log
 *.synctex.gz
-*.png
 *.py.swp
 *.csv
 tests/*
