@@ -36,18 +36,31 @@ import time
 start = time.time()
 
 # month of the simulation
+# should be passed as an input parameter
 month = 0
 
 ########################################################
 # INPUT MAPS
 ########################################################
 
+nside = 128
+lmax = 2*nside
+
 sky = pysm3.Sky(nside=128, preset_strings=["c1"], output_unit="uK_CMB")
 
 nu = 140 # since I'll be using the M1-140 channel
-lmax = 256
+
 map_FG = sky.get_emission(nu * u.GHz)
 alm_FG = hp.map2alm(map_FG, lmax=lmax)
+
+hp.visufunc.mollview(map_FG[0],title='I input')
+plt.savefig('I_input.png')
+
+hp.visufunc.mollview(map_FG[1],title='Q input')
+plt.savefig('Q_input.png')
+
+hp.visufunc.mollview(map_FG[2],title='V input')
+plt.savefig('V_input.png')
 
 ########################################################
 # SCANNING STRATEGY
@@ -433,9 +446,9 @@ print('map done: '+str(time.time()-start))
 
 npix = hp.nside2npix(128)
 
-I_signal = np.zeros(npix)
-Q_signal = np.zeros(npix)
-U_signal = np.zeros(npix)
+I_signal = np.full(npix,hp.pixelfunc.UNSEEN)
+Q_signal = np.full(npix,hp.pixelfunc.UNSEEN)
+U_signal = np.full(npix,hp.pixelfunc.UNSEEN)
 
 I_signal[pix_reduced] = s[3*integers]
 Q_signal[pix_reduced] = s[3*integers+1]
@@ -463,11 +476,11 @@ U_signal[pix_reduced] = s[3*integers+2]
 now = time.time()
 print(now - start)
 
-hp.mollview(I_signal, title="Mollview image RING")
+hp.mollview(I_signal, title="I reconstructed")
 plt.savefig('I_test.png')
 
-hp.mollview(Q_signal, title="Mollview image RING")
+hp.mollview(Q_signal, title="Q reconstructed")
 plt.savefig('Q_test.png')
 
-hp.mollview(U_signal, title="Mollview image RING")
+hp.mollview(U_signal, title="U reconstructed")
 plt.savefig('U_test.png')
