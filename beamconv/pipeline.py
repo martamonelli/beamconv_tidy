@@ -39,6 +39,9 @@ start = time.time()
 # should be passed as an input parameter
 month = 0
 
+first_det = 122
+first_det = 4
+
 ########################################################
 # INPUT MAPS
 ########################################################
@@ -59,8 +62,8 @@ plt.savefig('I_input.png')
 hp.visufunc.mollview(map_FG[1],title='Q input')
 plt.savefig('Q_input.png')
 
-hp.visufunc.mollview(map_FG[2],title='V input')
-plt.savefig('V_input.png')
+hp.visufunc.mollview(map_FG[2],title='U input')
+plt.savefig('U_input.png')
 
 ########################################################
 # SCANNING STRATEGY
@@ -253,6 +256,8 @@ for i in det_indices:
     if list_of_dictionaries[i]['name']=='M03_030_QA_140B':
         print(i)
         
+print(orient_array)
+        
 print('detector '+str(list_of_dictionaries[122]['name'])+': '+str(quat_array[122]))
 print('detector '+str(list_of_dictionaries[123]['name'])+': '+str(quat_array[123]))
 
@@ -266,16 +271,18 @@ quats = np.zeros((ndet,2,4))
 deads = np.tile(np.array([0,1]),(ndet,1))
 
 for i in range(ndet):
-    quats[i,0,0] = quat_array[122+i,3] # the offset quaternions are taken from the IMO
-    quats[i,0,1:4] = quat_array[122+i,0:3] # the offset quaternions are taken from the IMO
-    if list_of_dictionaries[i]['orient']=='Q':
-        if list_of_dictionaries[i]['pol']=='T':
+    quats[i,0,0] = quat_array[first_det+i,3] # the offset quaternions are taken from the IMO
+    quats[i,0,1:4] = quat_array[first_det+i,0:3] # the offset quaternions are taken from the IMO
+    if list_of_dictionaries[first_det+i]['orient']=='Q':
+        if list_of_dictionaries[first_det+i]['pol']=='T':
             polangs[i,0] = 0
         else: polangs[i,0] = 90
     else:
-        if list_of_dictionaries[i]['pol']=='T':
+        if list_of_dictionaries[first_det+i]['pol']=='T':
             polangs[i,0] = 45
         else: polangs[i,0] = 135
+
+print(polangs)
     
 # setting up the beam options
 beam_opts = dict(lmax=lmax,
