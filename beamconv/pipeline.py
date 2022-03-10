@@ -393,6 +393,9 @@ ATA_block = np.zeros((3,3))
 # index to count singular blocks, useless if I implement the correct detectors
 sing = 0
 
+# list of "singular" pixels
+sing_pix = []
+
 row = np.zeros(9*nhits, dtype=np.int32)
 column = np.zeros(9*nhits, dtype=np.int32)
 val = np.zeros(9*nhits, dtype=np.float64)
@@ -420,6 +423,7 @@ for p in range(nhits):
         val[9*p:9*(p+1)] = ATA_inv.flatten()
     else:
         sing += 1
+        sing_pix.append(p)
 
 print('fraction of singular blocks: ' + str(sing) + '/' + str(nhits))
         
@@ -429,6 +433,9 @@ del row, column, val
 print('inversion completed: ' + str(time.time()-start))
 
 s = inverse.dot(mat.transpose()).dot(d)
+
+# does this help?
+s[sing_pix] = hp.pixelfunc.UNSEEN
 
 print('map done: '+str(time.time()-start))
 
