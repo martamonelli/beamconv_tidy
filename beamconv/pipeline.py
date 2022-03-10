@@ -35,11 +35,12 @@ import cycler
 import time
 start = time.time()
 
-# month of the simulation
-# should be passed as an input parameter
+# month of the simulation, might be passed as an input parameter
 month = 0
 
+# det 122 is at boresight
 first_det = 122
+# det 4 has \psi=0, and therefore ensures that I am using the right combination of dets
 first_det = 4
 
 ########################################################
@@ -49,7 +50,7 @@ first_det = 4
 nside = 128
 lmax = 2*nside
 
-sky = pysm3.Sky(nside=128, preset_strings=["c1"], output_unit="uK_CMB")
+sky = pysm3.Sky(nside=nside, preset_strings=["c1"], output_unit="uK_CMB")
 
 nu = 140 # since I'll be using the M1-140 channel
 
@@ -72,33 +73,34 @@ plt.savefig('U_input.png')
 sampling_freq = 19.0
 
 # setting up the scanning strategy parameters
-ctime0 = 1510000000            # initial time
-mlen = 10 * 24 * 60 * 60        # mission length in seconds (one day!)
+ctime0 = 1510000000            # initial time, might be passed as input parameter
+mlen = 10 * 24 * 60 * 60       # mission length in seconds (ten days!)
 
 # Definition of the scanning strategy making use of LiteBIRD's specifics (with HWP non-idealities)
-ss = ScanStrategy(duration=mlen,
-        external_pointing=True,
-        theta_antisun=45.,      # [deg]
-        theta_boresight = 50.,  # [deg]
-        freq_antisun = 192.348, # [min]
-        freq_boresight = 0.314, # [rad/min]
+ss = ScanStrategy(
+        duration = mlen,
+        external_pointing = True,
+        theta_antisun = 45., 	         # [deg]
+        theta_boresight = 50.,           # [deg]
+        freq_antisun = 192.348,          # [min]
+        freq_boresight = 0.314,          # [rad/min]
         sample_rate = sampling_freq,     # [Hz]
-        jitter_amp=0.0,
-        ctime0=ctime0)
+        jitter_amp = 0.0,
+        ctime0 = ctime0)
 
 # Further options (non-ideal HWP)
 scan_opts = dict(
-        q_bore_func=ss.litebird_scan,
-        ctime_func=ss.litebird_ctime,
-        use_litebird_scan=True,
-        q_bore_kwargs=dict(),
-        ctime_kwargs=dict(),
-        max_spin=2,
-        nside_spin=128,
-        preview_pointing=False,
-        verbose=True,
-        save_tod=True,
-        save_point=True)
+        q_bore_func = ss.litebird_scan,
+        ctime_func = ss.litebird_ctime,
+        use_litebird_scan = True,
+        q_bore_kwargs = dict(),
+        ctime_kwargs = dict(),
+        max_spin = 2,
+        nside_spin = nside,
+        preview_pointing = False,
+        verbose = True,
+        save_tod = True,
+        save_point = True)
 
 nchunk = 10
 
@@ -111,7 +113,7 @@ chunks = ss.partition_mission(nsamp_chunk)
 # HWP SPECIFICS
 ########################################################
 
-bandcenter = 140.0
+bandcenter = nu
 bandwidth = 42.0
 
 trans_rec = np.genfromtxt('MFT_HWP.csv', delimiter=';')
@@ -147,38 +149,10 @@ for i in freqs_array:
             temp = .5*np.trace( np.dot(Sigma[j], np.dot(jones[i], np.dot(Sigma[k], jones[i].conj().transpose()))))
             mueller[i,j,k] = np.real(temp)
 
-#Plot Mueller
-#fig, ax = plt.subplots(4,4, sharex=True, figsize=(10,8))
-#stokes_string = ["I","Q","U","V"]
-
-#ax[0,0].axhline(y=1,color='k',linestyle='dashed')
-#ax[0,1].axhline(y=0,color='k',linestyle='dashed')
-#ax[0,2].axhline(y=0,color='k',linestyle='dashed')
-#ax[0,3].axhline(y=0,color='k',linestyle='dashed')
-#ax[1,0].axhline(y=0,color='k',linestyle='dashed')
-#ax[1,1].axhline(y=1,color='k',linestyle='dashed')
-#ax[1,2].axhline(y=0,color='k',linestyle='dashed')
-#ax[1,3].axhline(y=0,color='k',linestyle='dashed')
-#ax[2,0].axhline(y=0,color='k',linestyle='dashed')
-#ax[2,1].axhline(y=0,color='k',linestyle='dashed')
-#ax[2,2].axhline(y=-1,color='k',linestyle='dashed')
-#ax[2,3].axhline(y=0,color='k',linestyle='dashed')
-#ax[3,0].axhline(y=0,color='k',linestyle='dashed')
-#ax[3,1].axhline(y=0,color='k',linestyle='dashed')
-#ax[3,2].axhline(y=0,color='k',linestyle='dashed')
-#ax[3,3].axhline(y=-1,color='k',linestyle='dashed')
-
-#for i in range(4):
-#    for j in range(4):
-#        ax[i,j].plot(trans_rec[freqs_array,0], mueller[freqs_array,i,j], color='teal')
-#        ax[i,j].set_title(stokes_string[i]+stokes_string[j])
-#        
-#fig.tight_layout()
-#plt.show()
-
 index_140GHz = np.where(trans_rec[:,0] == bandcenter)
 mueller_140GHz = mueller[index_140GHz,:,:].reshape((4,4))
 
+print('mueller matrix that will be used:')
 print(mueller_140GHz)
 
 ########################################################
@@ -204,8 +178,6 @@ for i in range(nkey):
 
 ndet = len(detector_names)
 det_indices = range(ndet)
-
-print('the M1-140 channel has '+str(ndet)+' detectors')
 
 list_of_dictionaries = []
 
@@ -237,7 +209,7 @@ def all_equals(string):
     for i in det_indices:
         test[i] = list_of_dictionaries[i][string]
     return all(x==test[0] for x in test)
-# example of usage: print(all_equals('alpha')
+# example of usage: print(all_equals('alpha'))
 
 # instead, the following change detector by detector
 pol_array = np.empty(ndet,dtype=object)
@@ -248,20 +220,21 @@ for i in det_indices:
     pol_array[i] = list_of_dictionaries[i]['pol']
     orient_array[i] = list_of_dictionaries[i]['orient']
     quat_array[i] = np.array(list_of_dictionaries[i]['quat'])
-    
-for i in det_indices:
-    if list_of_dictionaries[i]['name']=='M03_030_QA_140T':
-        print(i)
-for i in det_indices:
-    if list_of_dictionaries[i]['name']=='M03_030_QA_140B':
-        print(i)
+
+# this was to check which det is at boresight    
+# for i in det_indices:
+#     if list_of_dictionaries[i]['name']=='M03_030_QA_140T':
+#         print(i)
+# for i in det_indices:
+#     if list_of_dictionaries[i]['name']=='M03_030_QA_140B':
+#         print(i)
         
-print(orient_array)
-        
-print('detector '+str(list_of_dictionaries[122]['name'])+': '+str(quat_array[122]))
-print('detector '+str(list_of_dictionaries[123]['name'])+': '+str(quat_array[123]))
+# this was to check that det 122 is actually at boresight        
+# print('detector '+str(list_of_dictionaries[122]['name'])+': '+str(quat_array[122]))
+# print('detector '+str(list_of_dictionaries[123]['name'])+': '+str(quat_array[123]))
 
 # create a grid of Gaussian beams
+# ndet was already defined! might be worth to call it differetly
 ndet = 4
 
 azs = np.zeros((ndet,2))
@@ -282,6 +255,7 @@ for i in range(ndet):
             polangs[i,0] = 45
         else: polangs[i,0] = 135
 
+print('the dectors I am using have \psi:')
 print(polangs)
     
 # setting up the beam options
@@ -316,43 +290,51 @@ for d in range(ndet):
         noiseless_data = ss.data(chunks[chunk],ss.beams[d][0],data_type='tod')
         noiseless_TOD[d,chunk*nsamp_chunk:(chunk+1)*nsamp_chunk] = noiseless_data
     
-#plt.plot(noiseless_TOD[0,:],'darkseagreen',label='noiseless')
-#plt.legend(loc=1)
-#plt.title('TOD (non-ideal HWP) [uK]')
-#plt.xlabel('observations')
-#plt.show()
-
 now = time.time()
-print(now - start)
+delta = now - start
+print('TOD produced in ' + str(delta) + ' seconds')
 
+# variables should be unified! this is just redundant
 nobs = nsamp
 dets = ndet
 
 pixel_new = np.empty((ndet,nsamp))
 
 pix_array = pix.reshape(ndet*nsamp)
+
+# I checked that pix_array was defined correctly, it seemed so
+# print('pix:')
+# print(pix)
+#
+# print('pix_array:')
+# print(pix_array)
+
 pix_reduced = np.array(sorted(list(set(pix_array))),dtype='int32')
 integers = np.arange(0,len(pix_reduced),dtype='int32')
 dic = dict(zip(pix_reduced,integers))
 
 nhits = len(pix_reduced)
-print(nhits)
+print(str(nhits) + ' pixels observed')
 
 for d in range(ndet):
     pixel_new[d] = np.vectorize(dic.get)(pix_array[d*nobs:(d+1)*nobs])
 
-print(min(pixel_new[d]))
-print(max(pixel_new[d]))
-    
-print(np.shape(pixel_new))
-print(pixel_new[0])
+# old checks:
+# print(min(pixel_new[d]))
+# print(max(pixel_new[d]))
+#    
+# print(np.shape(pixel_new))
+# print(pixel_new[0])
 
 row = np.zeros(3*nobs*dets, dtype=np.int32)
 column = np.zeros(3*nobs*dets, dtype=np.int32)
 val = np.zeros(3*nobs*dets, dtype=np.float64)
 
-omega = 88*2*np.pi/60
-phi0 = 0
+##########################################################
+# ARE THE FOLLOWING DEFINITION COMPATIBLE WITH BEAMCONV?
+##########################################################
+omega = 88*2*np.pi/60 #so that is in rad/s
+phi0 = 0 #initial HWP angle
 
 def phi(t):
     return phi0 + omega*t
@@ -363,27 +345,23 @@ def alpha(t,psi):
 def beta(psi,xi):
     return 2*psi - 2*xi
     
-# fin qui funziona
+# fin qui sta in piedi
 # vanno definite tutte le robe che compaiono qui sotto!
 
 idx_reduced = np.arange(0,nobs)
-t_sec = month*30*24*60*60 + idx_reduced/ss.fsamp
+t_sec = month*10*24*60*60 + idx_reduced/ss.fsamp
 
-print(mueller_140GHz)
-
-mII = mueller_140GHz[0][0]
-mIQ = mueller_140GHz[0][1]
-mIU = mueller_140GHz[0][2]
-mQI = mueller_140GHz[1][0]
-mQQ = mueller_140GHz[1][1]
-mQU = mueller_140GHz[1][2]
-mUI = mueller_140GHz[2][0]
-mUQ = mueller_140GHz[2][1]
-mUU = mueller_140GHz[2][2]
+mII = mueller_140GHz[0,0]
+mIQ = mueller_140GHz[0,1]
+mIU = mueller_140GHz[0,2]
+mQI = mueller_140GHz[1,0]
+mQQ = mueller_140GHz[1,1]
+mQU = mueller_140GHz[1,2]
+mUI = mueller_140GHz[2,0]
+mUQ = mueller_140GHz[2,1]
+mUU = mueller_140GHz[2,2]
 
 xi_array = polangs[:,0]
-
-print(mUU)
 
 d = np.zeros(nobs*dets)
 
@@ -408,13 +386,11 @@ mat = scipy.sparse.coo_matrix((val,(row,column)),shape=(dets*nobs,3*nhits)).tocs
 del row, column, val
 
 print('matrix done: '+str(time.time()-start))
-print('signal done: '+str(time.time()-start))
 
 ATA = mat.transpose().dot(mat)
 ATA_block = np.zeros((3,3))
 
-print(np.array(ATA[0].A[0][0:3]))
-
+# index to count singular blocks, useless if I implement the correct detectors
 sing = 0
 
 row = np.zeros(9*nhits, dtype=np.int32)
@@ -422,10 +398,16 @@ column = np.zeros(9*nhits, dtype=np.int32)
 val = np.zeros(9*nhits, dtype=np.float64)
 
 for p in range(nhits):
-    ATA_block[0] = ATA[3*p].A[0][3*p:3*(p+1)]
-    ATA_block[1] = ATA[3*p+1].A[0][3*p:3*(p+1)]
-    ATA_block[2] = ATA[3*p+2].A[0][3*p:3*(p+1)]
-    
+    ATA_block[0,0] = ATA[3*p,3*p]
+    ATA_block[0,1] = ATA[3*p,3*p+1]
+    ATA_block[0,2] = ATA[3*p,3*p+2]
+    ATA_block[1,0] = ATA[3*p+1,3*p]
+    ATA_block[1,1] = ATA[3*p+1,3*p+1]
+    ATA_block[1,2] = ATA[3*p+1,3*p+2]
+    ATA_block[2,0] = ATA[3*p+2,3*p]
+    ATA_block[2,1] = ATA[3*p+2,3*p+1]
+    ATA_block[2,2] = ATA[3*p+2,3*p+2]
+
     if np.linalg.det(ATA_block):
         ATA_inv = np.linalg.inv(ATA_block)
         #
@@ -438,14 +420,13 @@ for p in range(nhits):
         val[9*p:9*(p+1)] = ATA_inv.flatten()
     else:
         sing += 1
+
+print('fraction of singular blocks: ' + str(sing) + '/' + str(nhits))
         
 inverse = scipy.sparse.coo_matrix((val,(row,column)),shape=(3*nhits,3*nhits)).tocsr()
 del row, column, val
     
-print(time.time()-start)    
-
-print(sing)
-print(nhits)
+print('inversion completed: ' + str(time.time()-start))
 
 s = inverse.dot(mat.transpose()).dot(d)
 
@@ -479,9 +460,6 @@ U_signal[pix_reduced] = s[3*integers+2]
 #hdul.writeto('output_maps/beam'+beam_string+'_nside'+nside_string+'/monthly_both_'+month_string+'.fits')
 
 #print(month_string+' finished! ('+str(time.time()-start)+')')
-
-now = time.time()
-print(now - start)
 
 hp.mollview(I_signal, title="I reconstructed")
 plt.savefig('I_test.png')
