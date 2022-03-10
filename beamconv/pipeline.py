@@ -390,7 +390,7 @@ print('matrix done: '+str(time.time()-start))
 ATA = mat.transpose().dot(mat)
 ATA_block = np.zeros((3,3))
 
-# index to count singular blocks, useless if I implement the correct detectors
+# index to count singular blocks
 sing = 0
 
 # list of "singular" pixels
@@ -435,7 +435,8 @@ print('inversion completed: ' + str(time.time()-start))
 s = inverse.dot(mat.transpose()).dot(d)
 
 # does this help?
-s[sing_pix] = hp.pixelfunc.UNSEEN
+for p in sing_pix:
+    s[3*p:3*(p+1)] = hp.pixelfunc.UNSEEN
 
 print('map done: '+str(time.time()-start))
 
