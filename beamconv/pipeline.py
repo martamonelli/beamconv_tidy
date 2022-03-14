@@ -57,14 +57,23 @@ nu = 140 # since I'll be using the M1-140 channel
 map_FG = sky.get_emission(nu * u.GHz)
 alm_FG = hp.map2alm(map_FG, lmax=lmax)
 
-hp.visufunc.mollview(map_FG[0],title='I input')
-plt.savefig('I_input.png')
+Imin = min(map_FG[0]).value
+Imax = max(map_FG[0]).value
 
-hp.visufunc.mollview(map_FG[1],title='Q input')
-plt.savefig('Q_input.png')
+Qmin = min(map_FG[1]).value
+Qmax = max(map_FG[1]).value
 
-hp.visufunc.mollview(map_FG[2],title='U input')
-plt.savefig('U_input.png')
+Umin = min(map_FG[2]).value
+Umax = max(map_FG[2]).value
+
+hp.visufunc.mollview(map_FG[0],title='I input', min=Imin, max=Imax)
+plt.savefig('I-1.png')
+
+hp.visufunc.mollview(map_FG[1],title='Q input', min=Qmin, max=Qmax)
+plt.savefig('Q-1.png')
+
+hp.visufunc.mollview(map_FG[2],title='U input', min=Umin, max=Umax)
+plt.savefig('U-1.png')
 
 ########################################################
 # SCANNING STRATEGY
@@ -255,7 +264,7 @@ for i in range(ndet):
             polangs[i,0] = 45
         else: polangs[i,0] = 135
 
-print('the dectors I am using have \psi:')
+print('the detectors I am using have \psi:')
 print(polangs)
     
 # setting up the beam options
@@ -263,11 +272,14 @@ beam_opts = dict(lmax=lmax,
                  btype='Gaussian',
                  fwhm=fwhm,          # gaussian co-pol beam, so only specify FWHM (arcmin)
                  hwp_mueller=mueller_140GHz,
+                 #hwp_mueller=np.diag([1,1,-1,-1]),
+                 #hwp_mueller=np.diag([1,1,1,1]),
                  quats=quats
                 )
 
 # defining HWP frequency
 ss.set_hwp_mod(mode='continuous', freq=88/60)
+#ss.set_hwp_mod(mode='continuous', freq=0)
 
 # creating the focal plane
 ss.input_focal_plane(azs, els, polangs, deads, combine=True, scatter=False, **beam_opts)
@@ -281,6 +293,7 @@ maps, cond, proj = ss.solve_for_map(return_proj = True)
 psi = np.empty((ndet,nsamp))
 pix = np.empty((ndet,nsamp))
 noiseless_TOD = np.empty((ndet,nsamp))
+phi = np.empty(nsamp)
 
 for d in range(ndet):
     for chunk in range(nchunk):
@@ -289,7 +302,9 @@ for d in range(ndet):
         #
         noiseless_data = ss.data(chunks[chunk],ss.beams[d][0],data_type='tod')
         noiseless_TOD[d,chunk*nsamp_chunk:(chunk+1)*nsamp_chunk] = noiseless_data
-    
+        #
+        phi[chunk*nsamp_chunk:(chunk+1)*nsamp_chunk] = ss.data(chunks[chunk],data_type='hwp_ang')
+        
 now = time.time()
 delta = now - start
 print('TOD produced in ' + str(delta) + ' seconds')
@@ -333,17 +348,20 @@ val = np.zeros(3*nobs*dets, dtype=np.float64)
 ##########################################################
 # ARE THE FOLLOWING DEFINITION COMPATIBLE WITH BEAMCONV?
 ##########################################################
-omega = 88*2*np.pi/60 #so that is in rad/s
-phi0 = 0 #initial HWP angle
+#omega = 88*2*np.pi/60 #so that it is in rad/s
+#phi0 = 0 #initial HWP angle
 
-def phi(t):
-    return phi0 + omega*t
+#def phi(t):
+#    return phi0 + omega*t
 
-def alpha(t,psi):
-    return 2*phi(t) + 2*psi
+#def alpha(t,psi):
+#    return 2*phi(t) + 2*psi
+
+def alpha(phi,psi):
+    return 2*phi + 2*psi
  
-def beta(psi,xi):
-    return 2*psi - 2*xi
+def beta(phi,xi):
+    return 2*phi - 2*xi
     
 # fin qui sta in piedi
 # vanno definite tutte le robe che compaiono qui sotto!
@@ -361,24 +379,44 @@ mUI = mueller_140GHz[2,0]
 mUQ = mueller_140GHz[2,1]
 mUU = mueller_140GHz[2,2]
 
-xi_array = polangs[:,0]
+#mII = 1
+#mIQ = 0
+#mIU = 0
+#mQI = 0
+#mQQ = 1
+#mQU = 0
+#mUI = 0
+#mUQ = 0
+#mUU = -1
+
+#mII = 1
+#mIQ = 0
+#mIU = 0
+#mQI = 0
+#mQQ = 1
+#mQU = 0
+#mUI = 0
+#mUQ = 0
+#mUU = 1
+
+xi_array = polangs[:,0]/360*2*np.pi #so that it is in rad
 
 d = np.zeros(nobs*dets)
 
 for j in range(ndet):
-    Psi = psi[j]
+    Psi = psi[j]/360*2*np.pi #so that it is in rad
     
     row[j*3*nobs:(j+1)*3*nobs:3] = j*nobs+idx_reduced
     column[j*3*nobs:(j+1)*3*nobs:3] = 3*pixel_new[j]
-    val[j*3*nobs:(j+1)*3*nobs:3] = (mII+mQI*np.cos(beta(Psi,xi_array[j]))-mUI*np.sin(beta(Psi,xi_array[j])))/2
+    val[j*3*nobs:(j+1)*3*nobs:3] = (mII+mQI*np.cos(beta(phi,xi_array[j]))-mUI*np.sin(beta(phi,xi_array[j])))/2
     
     row[j*3*nobs+1:(j+1)*3*nobs:3] = j*nobs+idx_reduced
     column[j*3*nobs+1:(j+1)*3*nobs:3] = 3*pixel_new[j]+1
-    val[j*3*nobs+1:(j+1)*3*nobs:3] = (mIQ*np.cos(alpha(t_sec,Psi))-mIU*np.sin(alpha(t_sec,Psi))+(mQQ*np.cos(alpha(t_sec,Psi))-mQU*np.sin(alpha(t_sec,Psi)))*np.cos(beta(Psi,xi_array[j]))-(mUQ*np.cos(alpha(t_sec,Psi))-mUU*np.sin(alpha(t_sec,Psi)))*np.sin(beta(Psi,xi_array[j])))/2
+    val[j*3*nobs+1:(j+1)*3*nobs:3] = (mIQ*np.cos(alpha(phi,Psi))-mIU*np.sin(alpha(phi,Psi))+(mQQ*np.cos(alpha(phi,Psi))-mQU*np.sin(alpha(phi,Psi)))*np.cos(beta(phi,xi_array[j]))-(mUQ*np.cos(alpha(phi,Psi))-mUU*np.sin(alpha(phi,Psi)))*np.sin(beta(phi,xi_array[j])))/2
     
     row[j*3*nobs+2:(j+1)*3*nobs:3] = j*nobs+idx_reduced
     column[j*3*nobs+2:(j+1)*3*nobs:3] = 3*pixel_new[j]+2
-    val[j*3*nobs+2:(j+1)*3*nobs:3] = (mIQ*np.sin(alpha(t_sec,Psi))+mIU*np.cos(alpha(t_sec,Psi))+(mQQ*np.sin(alpha(t_sec,Psi))+mQU*np.cos(alpha(t_sec,Psi)))*np.cos(beta(Psi,xi_array[j]))-(mUQ*np.sin(alpha(t_sec,Psi))+mUU*np.cos(alpha(t_sec,Psi)))*np.sin(beta(Psi,xi_array[j])))/2 
+    val[j*3*nobs+2:(j+1)*3*nobs:3] = (mIQ*np.sin(alpha(phi,Psi))+mIU*np.cos(alpha(phi,Psi))+(mQQ*np.sin(alpha(phi,Psi))+mQU*np.cos(alpha(phi,Psi)))*np.cos(beta(phi,xi_array[j]))-(mUQ*np.sin(alpha(phi,Psi))+mUU*np.cos(alpha(phi,Psi)))*np.sin(beta(phi,xi_array[j])))/2 
     
     d[j*nobs:(j+1)*nobs] = noiseless_TOD[j]
     
@@ -469,11 +507,11 @@ U_signal[pix_reduced] = s[3*integers+2]
 
 #print(month_string+' finished! ('+str(time.time()-start)+')')
 
-hp.mollview(I_signal, title="I reconstructed")
-plt.savefig('I_test.png')
+hp.mollview(I_signal, title="I reconstructed", min=Imin, max=Imax)
+plt.savefig('I-2.png')
 
-hp.mollview(Q_signal, title="Q reconstructed")
-plt.savefig('Q_test.png')
+hp.mollview(Q_signal, title="Q reconstructed", min=Qmin, max=Qmax)
+plt.savefig('Q-2.png')
 
-hp.mollview(U_signal, title="U reconstructed")
-plt.savefig('U_test.png')
+hp.mollview(U_signal, title="U reconstructed", min=Umin, max=Umax)
+plt.savefig('U-2.png')
