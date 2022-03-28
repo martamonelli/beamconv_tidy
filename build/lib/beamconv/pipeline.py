@@ -86,7 +86,7 @@ sampling_freq = 19.0
 
 # setting up the scanning strategy parameters
 ctime0 = 1510000000            # initial time, might be passed as input parameter
-mlen = 1 * 24 * 60 * 60       # mission length in seconds (ten days!)
+mlen = 10 * 24 * 60 * 60       # mission length in seconds (one month!)
 
 # Definition of the scanning strategy making use of LiteBIRD's specifics (with HWP non-idealities)
 ss = ScanStrategy(
@@ -303,15 +303,7 @@ plt.savefig('U-2.png')
 
 #######################################
 
-npix = hp.nside2npix(128)
-
-mask_raw = np.ones(npix)
-
-for p in range(npix):
-    if maps[0,p]==hp.pixelfunc.UNSEEN:
-        mask_raw[p] = 0
-        
-hp.mollview(mask_raw, title="mask_raw")
+mask_raw = proj
 
 # The following function calls create apodized versions of the raw mask
 # with an apodization scale of 2.5 degrees using three different methods
@@ -335,13 +327,12 @@ mask_C2 = nmt.mask_apodization(mask_raw, aposcale, apotype="C2")
 #         originally masked are forced back to zero.
 mask_Sm = nmt.mask_apodization(mask_raw, aposcale, apotype="Smooth")
 
-hp.mollview(mask_Sm, title='Apodized mask')
-plt.savefig('mask.png')
+hp.mollview(mask_Sm, coord=['G', 'C'], title='Apodized mask')
 plt.show()
 
 # Read healpix maps and initialize a spin-0 and spin-2 field
-f_0 = nmt.NmtField(mask_Sm, [maps[0]])
-f_2 = nmt.NmtField(mask_Sm, [maps[1],maps[2]])
+f_0 = nmt.NmtField(mask, [hp.read_map("maps.fits", field=0, verbose=False)])
+f_2 = nmt.NmtField(mask, hp.read_map("maps.fits", field=[1, 2], verbose=False))
 
 # Initialize binning scheme with 4 ells per bandpower
 b = nmt.NmtBin.from_nside_linear(nside, 4)
@@ -354,20 +345,16 @@ cl_02 = nmt.compute_full_master(f_0, f_2, b)
 # spin-2 x spin-2
 cl_22 = nmt.compute_full_master(f_2, f_2, b)
 
-Cl_input = hp.anafast(map_FG, lmax=lmax)
-
 # Plot results
 ell_arr = b.get_effective_ells()
-#plt.plot(ell_arr, Cl_input[0][ell_arr], 'k-')
-plt.plot(ell_arr, cl_00[0], 'r--', label='TT')
-plt.plot(ell_arr, np.fabs(cl_02[0]), 'g--', label='TE')
-plt.plot(ell_arr, cl_22[0], 'b--', label='EE')
-plt.plot(ell_arr, cl_22[3], 'y--', label='BB')
+plt.plot(ell_arr, cl_00[0], 'r-', label='TT')
+plt.plot(ell_arr, np.fabs(cl_02[0]), 'g-', label='TE')
+plt.plot(ell_arr, cl_22[0], 'b-', label='EE')
+plt.plot(ell_arr, cl_22[3], 'y-', label='BB')
 plt.loglog()
 plt.xlabel('$\\ell$', fontsize=16)
 plt.ylabel('$C_\\ell$', fontsize=16)
 plt.legend(loc='upper right', ncol=2, labelspacing=0.1)
-plt.savefig('NaMaster.png')
 plt.show()
 
 
