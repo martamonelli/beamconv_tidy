@@ -1,5 +1,6 @@
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.pylab as pl
 import numpy as np
 import healpy as hp
 import scipy.sparse
@@ -71,12 +72,15 @@ Umax = max(map_FG[2]).value
 
 hp.visufunc.mollview(map_FG[0],title='I input', min=Imin, max=Imax)
 plt.savefig('I-1.png')
+plt.close()
 
 hp.visufunc.mollview(map_FG[1],title='Q input', min=Qmin, max=Qmax)
 plt.savefig('Q-1.png')
+plt.close()
 
 hp.visufunc.mollview(map_FG[2],title='U input', min=Umin, max=Umax)
 plt.savefig('U-1.png')
+plt.close()
 
 ########################################################
 # SCANNING STRATEGY
@@ -86,7 +90,7 @@ sampling_freq = 19.0
 
 # setting up the scanning strategy parameters
 ctime0 = 1510000000            # initial time, might be passed as input parameter
-mlen = 1 * 24 * 60 * 60       # mission length in seconds (ten days!)
+mlen = 10 * 24 * 60 * 60       # mission length in seconds (ten days!)
 
 # Definition of the scanning strategy making use of LiteBIRD's specifics (with HWP non-idealities)
 ss = ScanStrategy(
@@ -274,15 +278,15 @@ print(polangs)
 beam_opts = dict(lmax=lmax,
                  btype='Gaussian',
                  fwhm=fwhm,          # gaussian co-pol beam, so only specify FWHM (arcmin)
-                 hwp_mueller=mueller_140GHz,
+                 #hwp_mueller=mueller_140GHz,
                  #hwp_mueller=np.diag([1,1,-1,-1]),
-                 #hwp_mueller=np.diag([1,1,1,1]),
+                 hwp_mueller=np.diag([1,1,1,1]),
                  quats=quats
                 )
 
 # defining HWP frequency
-ss.set_hwp_mod(mode='continuous', freq=88/60)
-#ss.set_hwp_mod(mode='continuous', freq=0)
+#ss.set_hwp_mod(mode='continuous', freq=88/60)
+ss.set_hwp_mod(mode='continuous', freq=0)
 
 # creating the focal plane
 ss.input_focal_plane(azs, els, polangs, deads, combine=True, scatter=False, **beam_opts)
@@ -294,12 +298,15 @@ maps, cond, proj = ss.solve_for_map(return_proj = True)
 
 hp.mollview(maps[0], title="I", min=Imin, max=Imax)
 plt.savefig('I-2.png')
+plt.close()
 
 hp.mollview(maps[1], title="Q", min=Qmin, max=Qmax)
 plt.savefig('Q-2.png')
+plt.close()
 
 hp.mollview(maps[2], title="U", min=Umin, max=Umax)
 plt.savefig('U-2.png')
+plt.close()
 
 #######################################
 
@@ -312,6 +319,7 @@ for p in range(npix):
         mask_raw[p] = 0
         
 hp.mollview(mask_raw, title="mask_raw")
+plt.close()
 
 # The following function calls create apodized versions of the raw mask
 # with an apodization scale of 2.5 degrees using three different methods
@@ -335,9 +343,24 @@ mask_C2 = nmt.mask_apodization(mask_raw, aposcale, apotype="C2")
 #         originally masked are forced back to zero.
 mask_Sm = nmt.mask_apodization(mask_raw, aposcale, apotype="Smooth")
 
-hp.mollview(mask_Sm, title='Apodized mask')
+hp.mollview(mask_C2, title='Apodized mask')
 plt.savefig('mask.png')
-plt.show()
+plt.close()
+
+# Read healpix maps and initialize a spin-0 and spin-2 field
+f_0 = nmt.NmtField(mask_Sm, [maps[0]])
+f_2 = nmt.NmtField(mask_Sm, [maps[1],maps[2]])
+
+# Initialize binning scheme with 4 ells per bandpower
+b = nmt.NmtBin.from_nside_linear(nside, 4)
+
+# Compute MASTER estimator
+# spin-0 x spin-0
+cl_input_00 = nmt.compute_full_master(f_0, f_0, b)
+# spin-0 x spin-2
+cl_input_02 = nmt.compute_full_master(f_0, f_2, b)
+# spin-2 x spin-2
+cl_input_22 = nmt.compute_full_master(f_2, f_2, b)
 
 # Read healpix maps and initialize a spin-0 and spin-2 field
 f_0 = nmt.NmtField(mask_Sm, [maps[0]])
@@ -354,15 +377,31 @@ cl_02 = nmt.compute_full_master(f_0, f_2, b)
 # spin-2 x spin-2
 cl_22 = nmt.compute_full_master(f_2, f_2, b)
 
-Cl_input = hp.anafast(map_FG, lmax=lmax)
+# TT: cl_00[0]
+# EE: cl_22[0]
+# BB: cl_22[3]
+# TE: cl_02[0]
+# EB: cl_22[1]
+# TB: cl_02[1]
+
+n = 4
+colors = pl.cm.viridis(np.linspace(0,1,n))
 
 # Plot results
-ell_arr = b.get_effective_ells()
-#plt.plot(ell_arr, Cl_input[0][ell_arr], 'k-')
-plt.plot(ell_arr, cl_00[0], 'r--', label='TT')
-plt.plot(ell_arr, np.fabs(cl_02[0]), 'g--', label='TE')
-plt.plot(ell_arr, cl_22[0], 'b--', label='EE')
-plt.plot(ell_arr, cl_22[3], 'y--', label='BB')
+ell = b.get_effective_ells()
+ell_arr = ell[(ell <= lmax)] # it was going up to 3*nside!
+
+print('effective ells:')
+print(ell_arr)
+
+plt.plot(ell_arr, cl_input_00[0][(ell <= lmax)], color=colors[0])
+plt.plot(ell_arr, cl_00[0][(ell <= lmax)], color='white', linestyle='dashed', label='TT')
+plt.plot(ell_arr, np.fabs(cl_input_02[0][(ell <= lmax)]), color=colors[1])
+plt.plot(ell_arr, np.fabs(cl_02[0][(ell <= lmax)]), color='white', linestyle='dashed', label='TE')
+plt.plot(ell_arr, cl_input_22[0][(ell <= lmax)], color=colors[2])
+plt.plot(ell_arr, cl_22[0][(ell <= lmax)], color='white', linestyle='dashed', label='EE')
+plt.plot(ell_arr, cl_input_22[3][(ell <= lmax)], color=colors[3])
+plt.plot(ell_arr, cl_22[3][(ell <= lmax)], color='white', linestyle='dashed', label='BB')
 plt.loglog()
 plt.xlabel('$\\ell$', fontsize=16)
 plt.ylabel('$C_\\ell$', fontsize=16)
@@ -370,10 +409,12 @@ plt.legend(loc='upper right', ncol=2, labelspacing=0.1)
 plt.savefig('NaMaster.png')
 plt.show()
 
-
 Cl_input = hp.anafast(map_FG, lmax=lmax)
 Cl_proce = hp.anafast(maps, lmax=lmax)
 ell = np.arange(lmax+1)
+
+print('ells:')
+print(ell)
 
 fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2)
 fig.suptitle('Sharing x per column, y per row')
@@ -394,6 +435,7 @@ for ax in fig.get_axes():
     ax.label_outer()
     
 plt.savefig('Cls.png')
+plt.show()
 
 quit()
 
