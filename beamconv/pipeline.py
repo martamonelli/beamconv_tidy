@@ -5,6 +5,8 @@ import numpy as np
 import healpy as hp
 import scipy.sparse
 from scipy.sparse.linalg import inv
+from classy import Class
+from math import pi
 
 # NaMaster
 import pymaster as nmt
@@ -54,21 +56,42 @@ first_det = 4
 nside = 128
 lmax = 2*nside
 
-sky = pysm3.Sky(nside=nside, preset_strings=["c1"], output_unit="uK_CMB")
-
+#sky = pysm3.Sky(nside=nside, preset_strings=["c1"], output_unit="uK_CMB")
+#
 nu = 140 # since I'll be using the M1-140 channel
+#
+#map_FG = sky.get_emission(nu * u.GHz)
+#alm_FG = hp.map2alm(map_FG, lmax=lmax)
 
-map_FG = sky.get_emission(nu * u.GHz)
-alm_FG = hp.map2alm(map_FG, lmax=lmax)
+# create instance of the class " Class "
+LambdaCDM = Class()
+# pass input p a r a m e t e r s
+LambdaCDM.set({'omega_b':0.0223828,'omega_cdm':0.1201075,'h':0.67810,'A_s':2.100549e-09,'n_s':0.9660499,'tau_reio':0.05430842})
+LambdaCDM.set({'output':'tCl,pCl,lCl,mPk','lensing':'yes','P_k_max_1/Mpc':3.0})
+# run class
+LambdaCDM.compute()
+# get all C_l output
+cls = LambdaCDM.lensed_cl(lmax)
 
-Imin = min(map_FG[0]).value
-Imax = max(map_FG[0]).value
+ll = cls['ell']
+clTT = cls['tt']
+clEE = cls['ee']
+clBB = cls['bb']
+clTE = cls['te']
+clEB = np.zeros(nside*2+1)
+clTB = np.zeros(nside*2+1)
 
-Qmin = min(map_FG[1]).value
-Qmax = max(map_FG[1]).value
+map_FG = hp.sphtfunc.synfast([clTT,clEE,clBB,clTE,clEB,clTB], nside, new='True')
+alm_FG = hp.sphtfunc.synalm([clTT,clEE,clBB,clTE,clEB,clTB], nside, new='True')
 
-Umin = min(map_FG[2]).value
-Umax = max(map_FG[2]).value
+Imin = min(map_FG[0])#.value
+Imax = max(map_FG[0])#.value
+
+Qmin = min(map_FG[1])#.value
+Qmax = max(map_FG[1])#.value
+
+Umin = min(map_FG[2])#.value
+Umax = max(map_FG[2])#.value
 
 hp.visufunc.mollview(map_FG[0],title='I input', min=Imin, max=Imax)
 plt.savefig('I-1.png')
@@ -279,14 +302,14 @@ beam_opts = dict(lmax=lmax,
                  btype='Gaussian',
                  fwhm=fwhm,          # gaussian co-pol beam, so only specify FWHM (arcmin)
                  #hwp_mueller=mueller_140GHz,
-                 #hwp_mueller=np.diag([1,1,-1,-1]),
-                 hwp_mueller=np.diag([1,1,1,1]),
+                 hwp_mueller=np.diag([1,1,-1,-1]),
+                 #hwp_mueller=np.diag([1,1,1,1]),
                  quats=quats
                 )
 
 # defining HWP frequency
-#ss.set_hwp_mod(mode='continuous', freq=88/60)
-ss.set_hwp_mod(mode='continuous', freq=0)
+ss.set_hwp_mod(mode='continuous', freq=88/60)
+#ss.set_hwp_mod(mode='continuous', freq=0)
 
 # creating the focal plane
 ss.input_focal_plane(azs, els, polangs, deads, combine=True, scatter=False, **beam_opts)
@@ -348,8 +371,8 @@ plt.savefig('mask.png')
 plt.close()
 
 # Read healpix maps and initialize a spin-0 and spin-2 field
-f_0 = nmt.NmtField(mask_Sm, [maps[0]])
-f_2 = nmt.NmtField(mask_Sm, [maps[1],maps[2]])
+f_0 = nmt.NmtField(mask_Sm, [map_FG[0]])
+f_2 = nmt.NmtField(mask_Sm, [map_FG[1],map_FG[2]])
 
 # Initialize binning scheme with 4 ells per bandpower
 b = nmt.NmtBin.from_nside_linear(nside, 4)
@@ -384,60 +407,80 @@ cl_22 = nmt.compute_full_master(f_2, f_2, b)
 # EB: cl_22[1]
 # TB: cl_02[1]
 
-n = 4
-colors = pl.cm.viridis(np.linspace(0,1,n))
-
 # Plot results
 ell = b.get_effective_ells()
 ell_arr = ell[(ell <= lmax)] # it was going up to 3*nside!
 
-print('effective ells:')
-print(ell_arr)
+#plt.xlabel('$\\ell$', fontsize=16)
+#plt.ylabel('$C_\\ell$', fontsize=16)
 
-plt.plot(ell_arr, cl_input_00[0][(ell <= lmax)], color=colors[0])
-plt.plot(ell_arr, cl_00[0][(ell <= lmax)], color='white', linestyle='dashed', label='TT')
-plt.plot(ell_arr, np.fabs(cl_input_02[0][(ell <= lmax)]), color=colors[1])
-plt.plot(ell_arr, np.fabs(cl_02[0][(ell <= lmax)]), color='white', linestyle='dashed', label='TE')
-plt.plot(ell_arr, cl_input_22[0][(ell <= lmax)], color=colors[2])
-plt.plot(ell_arr, cl_22[0][(ell <= lmax)], color='white', linestyle='dashed', label='EE')
-plt.plot(ell_arr, cl_input_22[3][(ell <= lmax)], color=colors[3])
-plt.plot(ell_arr, cl_22[3][(ell <= lmax)], color='white', linestyle='dashed', label='BB')
-plt.loglog()
-plt.xlabel('$\\ell$', fontsize=16)
-plt.ylabel('$C_\\ell$', fontsize=16)
-plt.legend(loc='upper right', ncol=2, labelspacing=0.1)
+# beam coefficients
+beam_alm = hp.sphtfunc.gauss_beam(fwhm, lmax=lmax, pol=True)
+
+beam_T = beam_alm[:,0]
+beam_E = beam_alm[:,1]
+beam_B = beam_alm[:,2]
+
+clTT_beam = clTT*beam_T*beam_T
+clEE_beam = clEE*beam_E*beam_E
+clBB_beam = clBB*beam_B*beam_B
+clTE_beam = clTE*beam_T*beam_E
+clEB_beam = clEB*beam_E*beam_B
+clTB_beam = clTB*beam_T*beam_B
+
+fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, sharex='col', sharey='none')
+fig.suptitle(r'$[\ell(\ell+1)/2\pi]C_\ell$')
+fig.subplots_adjust(hspace=.5)
+fig.subplots_adjust(wspace=.5)
+#fig.xscale('log')
+#fig.yscale('linear')
+ax1.plot(ll,clTT*ll*(ll+1)/2./pi,color='gray')
+#ax1.plot(ll,clTT_beam*ll*(ll+1)/2./pi,color='chocolate')
+ax1.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_00[0][(ell <= lmax)]/2./pi, 'k-')
+ax1.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_00[0][(ell <= lmax)]/2./pi, 'r--')
+ax1.set_title('TT')
+ax2.plot(ll,clTE*ll*(ll+1)/2./pi,color='gray')
+#ax2.plot(ll,clTE_beam*ll*(ll+1)/2./pi,color='chocolate')
+ax2.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_02[0][(ell <= lmax)]/2./pi, 'k-')
+ax2.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_02[0][(ell <= lmax)]/2./pi, 'r--')
+ax2.set_title('TE')
+ax3.plot(ll,clEE*ll*(ll+1)/2./pi,color='gray')
+#ax3.plot(ll,clEE_beam*ll*(ll+1)/2./pi,color='chocolate')
+ax3.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_22[0][(ell <= lmax)]/2./pi, 'k-')
+ax3.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_22[0][(ell <= lmax)]/2./pi, 'r--')
+ax3.set_title('EE')
+ax4.plot(ll,clEB*ll*(ll+1)/2./pi,color='gray')
+#ax4.plot(ll,clEB_beam*ll*(ll+1)/2./pi,color='chocolate')
+ax4.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_22[1][(ell <= lmax)]/2./pi, 'k-')
+ax4.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_22[1][(ell <= lmax)]/2./pi, 'r--')
+ax4.set_title('EB')
+ax5.plot(ll,clBB*ll*(ll+1)/2./pi,color='gray')
+#ax5.plot(ll,clBB_beam*ll*(ll+1)/2./pi,color='chocolate')
+ax5.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_22[3][(ell <= lmax)]/2./pi, 'k-')
+ax5.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_22[3][(ell <= lmax)]/2./pi, 'r--')
+ax5.set_title('BB')
+ax6.plot(ll,clTB*ll*(ll+1)/2./pi,color='gray')
+#ax6.plot(ll,clTB_beam*ll*(ll+1)/2./pi,color='chocolate')
+ax6.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_02[1][(ell <= lmax)]/2./pi, 'k-')
+ax6.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_02[1][(ell <= lmax)]/2./pi, 'r--')
+ax6.set_title('TB')
+
+#for ax in fig.get_axes():
+#    ax.label_outer()
+    
 plt.savefig('NaMaster.png')
 plt.show()
 
-Cl_input = hp.anafast(map_FG, lmax=lmax)
-Cl_proce = hp.anafast(maps, lmax=lmax)
-ell = np.arange(lmax+1)
-
-print('ells:')
-print(ell)
-
-fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2)
-fig.suptitle('Sharing x per column, y per row')
-ax1.plot(ell, ell * (ell + 1) * Cl_input[0])
-ax1.plot(ell, ell * (ell + 1) * Cl_proce[0])
-ax2.plot(ell, ell * (ell + 1) * Cl_input[1])
-ax2.plot(ell, ell * (ell + 1) * Cl_proce[1])
-ax3.plot(ell, ell * (ell + 1) * Cl_input[2])
-ax3.plot(ell, ell * (ell + 1) * Cl_proce[2])
-ax4.plot(ell, ell * (ell + 1) * Cl_input[3])
-ax4.plot(ell, ell * (ell + 1) * Cl_proce[3])
-ax5.plot(ell, ell * (ell + 1) * Cl_input[4])
-ax5.plot(ell, ell * (ell + 1) * Cl_proce[4])
-ax6.plot(ell, ell * (ell + 1) * Cl_input[5])
-ax6.plot(ell, ell * (ell + 1) * Cl_proce[5])
-
-for ax in fig.get_axes():
-    ax.label_outer()
-    
-plt.savefig('Cls.png')
-plt.show()
-
 quit()
+
+# plot C_l ^ TT
+plt.figure(1)
+plt.xscale('log'); plt.yscale('linear'); plt.xlim(2,2500)
+plt.xlabel(r'$\ell$')
+plt.ylabel(r'$[\ell(\ell+1)/2\pi]C_\ell^\mathrm{TT}$')
+plt.plot(ll,clTT*ll*(ll+1)/2./pi,'r-')
+plt.savefig('class.png')
+plt.show
 
 # Setting up and filling TOD (noiseless)
 psi = np.empty((ndet,nsamp))
