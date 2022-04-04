@@ -53,8 +53,8 @@ first_det = 4
 # INPUT MAPS
 ########################################################
 
-nside = 128
-lmax = 2*nside
+nside = 256
+lmax = 2*nside+100
 
 #sky = pysm3.Sky(nside=nside, preset_strings=["c1"], output_unit="uK_CMB")
 #
@@ -78,11 +78,10 @@ clTT = cls['tt']
 clEE = cls['ee']
 clBB = cls['bb']
 clTE = cls['te']
-clEB = np.zeros(nside*2+1)
-clTB = np.zeros(nside*2+1)
+clEB = np.zeros(lmax+1)
+clTB = np.zeros(lmax+1)
 
-map_FG = hp.sphtfunc.synfast([clTT,clEE,clBB,clTE,clEB,clTB], nside, new='True')
-alm_FG = hp.sphtfunc.synalm([clTT,clEE,clBB,clTE,clEB,clTB], nside, new='True')
+map_FG, alm_FG = hp.sphtfunc.synfast([clTT,clEE,clBB,clTE,clEB,clTB], nside, alm='True', new='True')
 
 Imin = min(map_FG[0])#.value
 Imax = max(map_FG[0])#.value
@@ -315,7 +314,7 @@ ss.set_hwp_mod(mode='continuous', freq=88/60)
 ss.input_focal_plane(azs, els, polangs, deads, combine=True, scatter=False, **beam_opts)
 
 # Producing the coverage map
-ss.allocate_maps(nside=128)
+ss.allocate_maps(nside=nside)
 ss.scan_instrument_mpi(alm_FG, **scan_opts)
 maps, cond, proj = ss.solve_for_map(return_proj = True)
 
@@ -333,7 +332,7 @@ plt.close()
 
 #######################################
 
-npix = hp.nside2npix(128)
+npix = hp.nside2npix(nside)
 
 mask_raw = np.ones(npix)
 
@@ -414,19 +413,24 @@ ell_arr = ell[(ell <= lmax)] # it was going up to 3*nside!
 #plt.xlabel('$\\ell$', fontsize=16)
 #plt.ylabel('$C_\\ell$', fontsize=16)
 
+# pixel window function
+pixwin_T = hp.sphtfunc.pixwin(nside,pol=True)[0]
+pixwin_P = hp.sphtfunc.pixwin(nside,pol=True)[1]
+
 # beam coefficients
-beam_alm = hp.sphtfunc.gauss_beam(fwhm, lmax=lmax, pol=True)
+fwhm_rad = np.radians(fwhm/60)
+beam_alm = hp.sphtfunc.gauss_beam(fwhm_rad, lmax=lmax, pol=True)
 
 beam_T = beam_alm[:,0]
 beam_E = beam_alm[:,1]
 beam_B = beam_alm[:,2]
 
-clTT_beam = clTT*beam_T*beam_T
-clEE_beam = clEE*beam_E*beam_E
-clBB_beam = clBB*beam_B*beam_B
-clTE_beam = clTE*beam_T*beam_E
-clEB_beam = clEB*beam_E*beam_B
-clTB_beam = clTB*beam_T*beam_B
+clTT_beam = clTT*(beam_T*beam_T)
+clEE_beam = clEE*(beam_E*beam_E)
+clBB_beam = clBB*(beam_B*beam_B)
+clTE_beam = clTE*(beam_T*beam_E)
+#clEB_beam = clEB/(beam_E*beam_B)
+#clTB_beam = clTB/(beam_T*beam_B)
 
 fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, sharex='col', sharey='none')
 fig.suptitle(r'$[\ell(\ell+1)/2\pi]C_\ell$')
@@ -434,35 +438,42 @@ fig.subplots_adjust(hspace=.5)
 fig.subplots_adjust(wspace=.5)
 #fig.xscale('log')
 #fig.yscale('linear')
+
+ax1.axvline(x=2*nside,color='silver')
 ax1.plot(ll,clTT*ll*(ll+1)/2./pi,color='gray')
-#ax1.plot(ll,clTT_beam*ll*(ll+1)/2./pi,color='chocolate')
 ax1.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_00[0][(ell <= lmax)]/2./pi, 'k-')
-ax1.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_00[0][(ell <= lmax)]/2./pi, 'r--')
+ax1.plot(ll,clTT_beam*ll*(ll+1)/2./pi,color='goldenrod')
+ax1.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_00[0][(ell <= lmax)]/2./pi, color='darkred')
 ax1.set_title('TT')
+ax2.axvline(x=2*nside,color='silver')
 ax2.plot(ll,clTE*ll*(ll+1)/2./pi,color='gray')
-#ax2.plot(ll,clTE_beam*ll*(ll+1)/2./pi,color='chocolate')
 ax2.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_02[0][(ell <= lmax)]/2./pi, 'k-')
-ax2.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_02[0][(ell <= lmax)]/2./pi, 'r--')
+ax2.plot(ll,clTE_beam*ll*(ll+1)/2./pi,color='goldenrod')
+ax2.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_02[0][(ell <= lmax)]/2./pi, color='darkred')
 ax2.set_title('TE')
+ax3.axvline(x=2*nside,color='silver')
 ax3.plot(ll,clEE*ll*(ll+1)/2./pi,color='gray')
-#ax3.plot(ll,clEE_beam*ll*(ll+1)/2./pi,color='chocolate')
 ax3.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_22[0][(ell <= lmax)]/2./pi, 'k-')
-ax3.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_22[0][(ell <= lmax)]/2./pi, 'r--')
+ax3.plot(ll,clEE_beam*ll*(ll+1)/2./pi,color='goldenrod')
+ax3.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_22[0][(ell <= lmax)]/2./pi, color='darkred')
 ax3.set_title('EE')
+ax4.axvline(x=2*nside,color='silver')
 ax4.plot(ll,clEB*ll*(ll+1)/2./pi,color='gray')
-#ax4.plot(ll,clEB_beam*ll*(ll+1)/2./pi,color='chocolate')
 ax4.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_22[1][(ell <= lmax)]/2./pi, 'k-')
-ax4.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_22[1][(ell <= lmax)]/2./pi, 'r--')
+#ax4.plot(ll,clEB_beam*ll*(ll+1)/2./pi,color='goldenrod')
+ax4.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_22[1][(ell <= lmax)]/2./pi, color='darkred')
 ax4.set_title('EB')
+ax5.axvline(x=2*nside,color='silver')
 ax5.plot(ll,clBB*ll*(ll+1)/2./pi,color='gray')
-#ax5.plot(ll,clBB_beam*ll*(ll+1)/2./pi,color='chocolate')
 ax5.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_22[3][(ell <= lmax)]/2./pi, 'k-')
-ax5.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_22[3][(ell <= lmax)]/2./pi, 'r--')
+ax5.plot(ll,clBB_beam*ll*(ll+1)/2./pi,color='goldenrod')
+ax5.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_22[3][(ell <= lmax)]/2./pi, color='darkred')
 ax5.set_title('BB')
+ax6.axvline(x=2*nside,color='silver')
 ax6.plot(ll,clTB*ll*(ll+1)/2./pi,color='gray')
-#ax6.plot(ll,clTB_beam*ll*(ll+1)/2./pi,color='chocolate')
 ax6.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_input_02[1][(ell <= lmax)]/2./pi, 'k-')
-ax6.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_02[1][(ell <= lmax)]/2./pi, 'r--')
+#ax6.plot(ll,clTB_beam*ll*(ll+1)/2./pi,color='goldenrod')
+ax6.plot(ell_arr, ell_arr * (ell_arr + 1) * cl_02[1][(ell <= lmax)]/2./pi, color='darkred')
 ax6.set_title('TB')
 
 #for ax in fig.get_axes():
@@ -670,8 +681,6 @@ for p in sing_pix:
     s[3*p:3*(p+1)] = hp.pixelfunc.UNSEEN
 
 print('map done: '+str(time.time()-start))
-
-npix = hp.nside2npix(128)
 
 I_signal = np.full(npix,hp.pixelfunc.UNSEEN)
 Q_signal = np.full(npix,hp.pixelfunc.UNSEEN)
