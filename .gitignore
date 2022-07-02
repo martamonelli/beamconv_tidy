@@ -2,6 +2,8 @@
 *.aux
 *.log
 *.synctex.gz
+*.py.swp
+*.csv
 tests/*
 .ipynb_checkpoints
 .DS_Store
