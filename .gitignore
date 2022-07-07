@@ -5,6 +5,7 @@
 *.py.swp
 *.csv
 tests/*
+dist/*
 .ipynb_checkpoints
 .DS_Store
 /tests/test_data*
