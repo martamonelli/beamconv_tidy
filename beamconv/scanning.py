@@ -54,9 +54,15 @@ def matrix2x2_multi_xz(x,  z, theta):
     ct, st = np.cos(theta), np.sin(theta)
     return ct*x + st*z, -st*x + ct*z
 
-def cosangle(xi, yi, zi, xii, yii, zii):
-    return np.arccos((xi*xii+yi*yii+zi*zii)/np.sqrt(xi*xi+yi*yi+zi*zi)\
-          /np.sqrt(xii*xii+yii*yii+zii*zii))
+def cosangle(xi, yi, zi, xii, yii, zii): #implemented Martin's suggestion
+    #return np.arccos((xi*xii+yi*yii+zi*zii)/np.sqrt(xi*xi+yi*yi+zi*zi)\
+    #      /np.sqrt(xii*xii+yii*yii+zii*zii))
+    ang = np.zeros(np.shape(xi))
+    for i in np.arange(len(xi)):
+        vi = np.array([xi,yi,zi])
+        vii = np.array([xii,yii,zii])
+        ang = np.arctan2(np.linalg.norm(np.cross(vi,vii)),np.dot(vi,vii))
+    return ang
 
 def deriv_theta(xi, yi, zi):
     theta = np.arctan(np.sqrt(xi*xi+yi*yi)/zi)+5.*pi # -pi/2 ~ pi/2
