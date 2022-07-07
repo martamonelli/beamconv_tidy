@@ -59,9 +59,9 @@ def cosangle(xi, yi, zi, xii, yii, zii): #implemented Martin's suggestion
     #      /np.sqrt(xii*xii+yii*yii+zii*zii))
     ang = np.zeros(np.shape(xi))
     for i in np.arange(len(xi)):
-        vi = np.array([xi,yi,zi])
-        vii = np.array([xii,yii,zii])
-        ang = np.arctan2(np.linalg.norm(np.cross(vi,vii)),np.dot(vi,vii))
+        vi = np.array([xi[i],yi[i],zi[i]])
+        vii = np.array([xii[i],yii[i],zii[i]])
+        ang[i] = np.arctan2(np.linalg.norm(np.cross(vi,vii)),np.dot(vi,vii))
     return ang
 
 def deriv_theta(xi, yi, zi):

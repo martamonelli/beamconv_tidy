@@ -4,9 +4,8 @@
 *.synctex.gz
 *.py.swp
 *.csv
-tests/*
-dist/*
-build/*
+/dist*
+/build*
 .ipynb_checkpoints
 .DS_Store
 /tests/test_data*
